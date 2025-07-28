@@ -32,6 +32,7 @@ import androidx.core.app.NotificationCompat
 import androidx.wear.compose.material.Button
 import androidx.wear.compose.material.Text
 import androidx.wear.ongoing.OngoingActivity
+import androidx.wear.ongoing.Status
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -43,15 +44,28 @@ class CountdownActivity : ComponentActivity() {
     private var isStopping = false
     private var wakeLock: PowerManager.WakeLock? = null
     private var ongoingActivity: OngoingActivity? = null
+
     private val NOTIFICATION_ID = 1001
     private val CHANNEL_ID = "timer_channel"
+
+    companion object {
+        const val EXTRA_TIMER_STATE = "timer_state"
+        const val STATE_RUNNING = 0
+        const val STATE_FINISHED = 1
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val timerLength = intent.getIntExtra("timer_length", 60)
+        val timerState = intent.getIntExtra(EXTRA_TIMER_STATE, STATE_RUNNING)
+
+        // Create notification channel once
+        createNotificationChannel()
+
         setContent {
             CountdownScreen(
                 initialTime = timerLength,
+                initialStateIsFinished = timerState == STATE_FINISHED,
                 onTimerStarted = { startRunningOngoingActivity() },
                 onTimerFinished = { updateOngoingActivityForFinish() },
                 onStopPressed = { stopBuzzing() }
@@ -59,29 +73,51 @@ class CountdownActivity : ComponentActivity() {
         }
     }
 
+    private fun createNotificationChannel() {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Timer Notifications",
+                NotificationManager.IMPORTANCE_LOW // Default importance for running timer
+            ).apply {
+                description = "Notifications for timer status"
+                enableVibration(false)
+                enableLights(false)
+                setShowBadge(false)
+            }
+            notificationManager.createNotificationChannel(channel)
+        }
+    }
+
     private fun startRunningOngoingActivity() {
+        if (ongoingActivity != null) {
+            println("DEBUG: OngoingActivity already active, skipping creation.")
+            return
+        }
+
         try {
             println("DEBUG: Creating running ongoing activity")
-            
+
             // Create the ongoing activity for running timer
             ongoingActivity = OngoingActivity.Builder(
                 this,
                 NOTIFICATION_ID,
                 createRunningNotification()
-            ).setTouchIntent(createPendingIntent())
+            ).setTouchIntent(createPendingIntent(STATE_RUNNING))
              .build()
-            
+
             println("DEBUG: OngoingActivity builder created")
-            
+
             // Apply the ongoing activity
             ongoingActivity?.apply(this)
             println("DEBUG: OngoingActivity applied successfully")
-            
+
             // Also send the notification directly to ensure it shows
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.notify(NOTIFICATION_ID, createRunningNotification().build())
             println("DEBUG: Notification sent directly")
-            
+
         } catch (e: Exception) {
             println("DEBUG: OngoingActivity failed: ${e.message}")
             e.printStackTrace()
@@ -90,19 +126,27 @@ class CountdownActivity : ComponentActivity() {
 
     private fun updateOngoingActivityForFinish() {
         if (isStopping) return
-        
-        // Start ongoing activity for Wear OS
-        startOngoingActivity()
-        
+
+        try {
+            // Update the notification for finished timer
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(NOTIFICATION_ID, createFinishedNotification().build())
+            println("DEBUG: Notification updated for finished timer")
+
+        } catch (e: Exception) {
+            println("DEBUG: OngoingActivity update failed: ${e.message}")
+            e.printStackTrace()
+        }
+
         // Acquire wake lock to keep screen on
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(
             PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
             "Weartimer::WakeLock"
         )
-        wakeLock?.acquire(10*60*1000L) // 10 minutes timeout
+        wakeLock?.acquire(10 * 60 * 1000L) // 10 minutes timeout
         println("DEBUG: Wake lock acquired")
-        
+
         // Set window flags to bring to front
         window.addFlags(
             WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
@@ -112,18 +156,18 @@ class CountdownActivity : ComponentActivity() {
             WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
         )
         println("DEBUG: Window flags set")
-        
+
         // Bring activity to front
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
             println("DEBUG: setShowWhenLocked and setTurnScreenOn called")
         }
-        
+
         // Force the activity to be visible and focused
         window.clearFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
         window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
-        
+
         // Request focus to bring to front
         try {
             window.decorView.requestFocus()
@@ -131,10 +175,10 @@ class CountdownActivity : ComponentActivity() {
         } catch (e: Exception) {
             println("DEBUG: Request focus failed: ${e.message}")
         }
-        
+
         toneGen = ToneGenerator(AudioManager.STREAM_ALARM, 100)
         vibrator = getSystemService(Vibrator::class.java)
-        
+
         buzzingTimer = object : CountDownTimer(Long.MAX_VALUE, 1000) {
             override fun onTick(millisUntilFinished: Long) {
                 if (!isStopping) {
@@ -149,43 +193,19 @@ class CountdownActivity : ComponentActivity() {
         println("DEBUG: Buzzing timer started")
     }
 
-    private fun startOngoingActivity() {
-        try {
-            // Create the ongoing activity for finished timer
-            ongoingActivity = OngoingActivity.Builder(
-                this,
-                NOTIFICATION_ID,
-                createFinishedNotification()
-            ).setTouchIntent(createPendingIntent())
-             .build()
-            
-            // Apply the ongoing activity
-            ongoingActivity?.apply(this)
-            println("DEBUG: OngoingActivity updated for finished timer")
-        } catch (e: Exception) {
-            println("DEBUG: OngoingActivity failed: ${e.message}")
-            e.printStackTrace()
-        }
-    }
-
     private fun createRunningNotification(): NotificationCompat.Builder {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        
-        // Create notification channel for Android 8.0+
+
+        // Ensure channel importance is correct for running timer
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Timer Notifications",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Timer notifications"
-                enableVibration(false)
-                enableLights(false)
-                setShowBadge(false)
+            val channel = notificationManager.getNotificationChannel(CHANNEL_ID)
+            if (channel?.importance != NotificationManager.IMPORTANCE_LOW) {
+                // Recreate channel if importance needs to be changed
+                notificationManager.deleteNotificationChannel(CHANNEL_ID)
+                createNotificationChannel() // This will create it with low importance
             }
-            notificationManager.createNotificationChannel(channel)
         }
-        
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("⏱️ Timer Running")
             .setContentText("Tap to view timer")
@@ -194,26 +214,32 @@ class CountdownActivity : ComponentActivity() {
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setAutoCancel(false)
             .setOngoing(true)
+            .setContentIntent(createPendingIntent(STATE_RUNNING))
     }
 
     private fun createFinishedNotification(): NotificationCompat.Builder {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        
-        // Create notification channel for Android 8.0+
+
+        // Ensure channel importance is correct for finished timer (high)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Timer Notifications",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Timer finished notifications"
-                enableVibration(true)
-                enableLights(true)
-                setShowBadge(true)
+            val channel = notificationManager.getNotificationChannel(CHANNEL_ID)
+            if (channel?.importance != NotificationManager.IMPORTANCE_HIGH) {
+                // Recreate channel with high importance
+                notificationManager.deleteNotificationChannel(CHANNEL_ID)
+                val newChannel = NotificationChannel(
+                    CHANNEL_ID,
+                    "Timer Notifications",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Timer finished notifications"
+                    enableVibration(true)
+                    enableLights(true)
+                    setShowBadge(true)
+                }
+                notificationManager.createNotificationChannel(newChannel)
             }
-            notificationManager.createNotificationChannel(channel)
         }
-        
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("⏰ Timer Finished!")
             .setContentText("Tap to stop alarm")
@@ -222,62 +248,80 @@ class CountdownActivity : ComponentActivity() {
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(false)
             .setOngoing(true)
+            .setContentIntent(createPendingIntent(STATE_FINISHED))
     }
 
-    private fun createPendingIntent(): PendingIntent {
-        val intent = Intent(this, CountdownActivity::class.java)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        
+    private fun createPendingIntent(state: Int): PendingIntent {
+        val intent = Intent(this, CountdownActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            putExtra(EXTRA_TIMER_STATE, state)
+        }
+
         return PendingIntent.getActivity(
-            this, 0, intent,
+            this, state, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
     }
 
     private fun stopBuzzing() {
         println("DEBUG: stopBuzzing called")
+        if (isStopping) return // Prevent multiple calls
+
         isStopping = true
         buzzingTimer?.cancel()
         toneGen?.release()
         toneGen = null
-        
+        vibrator?.cancel() // Stop ongoing vibration
+
         // Release wake lock
         wakeLock?.release()
         wakeLock = null
-        
+
         // Clear ongoing activity by canceling notification
-        ongoingActivity = null
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancel(NOTIFICATION_ID)
-        
+        ongoingActivity = null // Nullify the reference
+
         finish()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        isStopping = true
-        buzzingTimer?.cancel()
-        toneGen?.release()
-        wakeLock?.release()
-        ongoingActivity = null
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.cancel(NOTIFICATION_ID)
+        println("DEBUG: onDestroy called")
+        // Only perform cleanup if not already stopping via stopBuzzing()
+        if (!isStopping) {
+            buzzingTimer?.cancel()
+            toneGen?.release()
+            vibrator?.cancel()
+            wakeLock?.release()
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.cancel(NOTIFICATION_ID)
+            ongoingActivity = null
+        }
     }
 }
 
 @Composable
 fun CountdownScreen(
     initialTime: Int,
+    initialStateIsFinished: Boolean,
     onTimerStarted: () -> Unit,
     onTimerFinished: () -> Unit,
     onStopPressed: () -> Unit
 ) {
     var timeLeft by remember { mutableStateOf(initialTime) }
     var preciseTimeLeft by remember { mutableStateOf(initialTime.toFloat()) }
-    var isRunning by remember { mutableStateOf(true) }
-    var isFinished by remember { mutableStateOf(false) }
+    var isRunning by remember { mutableStateOf(!initialStateIsFinished) }
+    var isFinished by remember { mutableStateOf(initialStateIsFinished) }
     var timer: CountDownTimer? by remember { mutableStateOf(null) }
-    
+
+    // If starting in finished state, immediately call onTimerFinished
+    LaunchedEffect(initialStateIsFinished) {
+        if (initialStateIsFinished) {
+            onTimerFinished()
+        }
+    }
+
     // Calculate progress for the arc using precise time (0.0 to 1.0) with smooth animation
     val effectiveInitialTime = initialTime.toFloat()
     val targetProgress by remember {
@@ -288,42 +332,32 @@ fun CountdownScreen(
             } else 0f
         }
     }
-    
-    // Force animation restart with a key
-    val animationKey = remember { isRunning }
-    val animatedProgressWithKey by animateFloatAsState(
+
+    // Force animation restart with a key (Only one needed for progress)
+    val animatedProgress by animateFloatAsState(
         targetValue = targetProgress,
         animationSpec = tween(durationMillis = 1000, easing = LinearEasing),
         label = "progress"
     )
-    
-    // Force animation restart with a key
-    val animationKey2 = remember { isRunning }
-    val animatedProgressWithKey2 by animateFloatAsState(
-        targetValue = targetProgress,
-        animationSpec = tween(durationMillis = 1000, easing = LinearEasing),
-        label = "progress"
-    )
-    
-    // Use the second animation for the canvas
-    val finalAnimatedProgress = animatedProgressWithKey2
 
     // Flashing animation
-    val infiniteTransition = rememberInfiniteTransition()
+    val infiniteTransition = rememberInfiniteTransition(label = "flashTransition")
     val flashAlpha by infiniteTransition.animateFloat(
         initialValue = 0.3f,
         targetValue = 1.0f,
         animationSpec = infiniteRepeatable(
             animation = tween(500),
             repeatMode = RepeatMode.Reverse
-        )
+        ), label = "flashAlpha"
     )
 
     DisposableEffect(isRunning) {
         if (isRunning) {
-            // Call onTimerStarted when timer begins
-            onTimerStarted()
-            
+            // Call onTimerStarted only if truly starting from a running state
+            if (!initialStateIsFinished) {
+                onTimerStarted()
+            }
+
             // Start the timer immediately
             timer = object : CountDownTimer((initialTime * 1000).toLong(), 100) {
                 override fun onTick(millisUntilFinished: Long) {
@@ -343,7 +377,7 @@ fun CountdownScreen(
         } else {
             timer?.cancel()
         }
-        onDispose { 
+        onDispose {
             timer?.cancel()
         }
     }
@@ -365,14 +399,14 @@ fun CountdownScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     Spacer(modifier = Modifier.weight(1f))
-                    
+
                     Text(
                         text = "TIME'S UP!",
                         fontSize = 28.sp,
                         color = Color.White,
                         modifier = Modifier.padding(bottom = 48.dp)
                     )
-                    
+
                     Button(
                         onClick = onStopPressed,
                         modifier = Modifier
@@ -386,7 +420,7 @@ fun CountdownScreen(
                             color = Color.White
                         )
                     }
-                    
+
                     Spacer(modifier = Modifier.weight(1f))
                 }
             }
@@ -403,10 +437,10 @@ fun CountdownScreen(
                     val strokeWidth = 8.dp.toPx()
                     val radius = (size.minDimension / 2) - strokeWidth
                     val center = androidx.compose.ui.geometry.Offset(size.width / 2, size.height / 2)
-                    
+
                     // Draw the progress arc with smooth animation
-                    if (finalAnimatedProgress > 0f) {
-                        val sweepAngle = finalAnimatedProgress * 360f
+                    if (animatedProgress > 0f) {
+                        val sweepAngle = animatedProgress * 360f
                         drawArc(
                             color = Color.Blue,
                             startAngle = -90f, // Start from top
@@ -424,7 +458,7 @@ fun CountdownScreen(
                         )
                     }
                 }
-                
+
                 // Timer text in the center (using rounded-up display value)
                 Text(
                     text = String.format("%02d:%02d", timeLeft / 60, timeLeft % 60),
@@ -434,4 +468,4 @@ fun CountdownScreen(
             }
         }
     }
-} 
+}

@@ -12,6 +12,20 @@ import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material.Button
 import androidx.wear.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.wear.compose.material.Picker
+import androidx.wear.compose.material.rememberPickerState
+import androidx.wear.compose.material.PositionIndicator
+import androidx.wear.compose.material.TimeText
+import androidx.wear.compose.material.Scaffold
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.wear.compose.material.Vignette
+import androidx.wear.compose.material.VignettePosition
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,21 +42,126 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun StartTimerScreen(onStart: (Int) -> Unit) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+    val minutesOptions = (0..59).toList()
+    val secondsOptions = (0..59).toList()
+
+    val minutesPickerState = rememberPickerState(initialNumberOfOptions = minutesOptions.size, initiallySelectedOption = 1)
+    val secondsPickerState = rememberPickerState(initialNumberOfOptions = secondsOptions.size, initiallySelectedOption = 0)
+
+    val selectedMinutes by remember {
+        derivedStateOf { minutesOptions[minutesPickerState.selectedOption] }
+    }
+    val selectedSeconds by remember {
+        derivedStateOf { secondsOptions[secondsPickerState.selectedOption] }
+    }
+
+    val focusRequester = remember { FocusRequester() }
+
+    Scaffold(
+        timeText = { TimeText() },
+        vignette = null
     ) {
-        Button(
-            onClick = { onStart(5) }, // 5 seconds for now
+        Column(
             modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(0.8f)
-                .height(56.dp)
+                .fillMaxSize()
+                .padding(horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceAround
         ) {
-            Text(
-                "Start Timer",
-                fontSize = 22.sp
-            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(-16.dp), // Negative spacing to bring pickers closer
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = "mins",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center
+                    )
+                    Picker(
+                        modifier = Modifier
+                            .width(60.dp)
+                            .height(80.dp)
+                            .focusRequester(focusRequester),
+                        state = minutesPickerState,
+                        readOnly = false
+                    ) { index ->
+                        Text(
+                            text = minutesOptions[index].toString().padStart(2, '0'),
+                            fontSize = 36.sp, // Increased font size from 26.sp to 30.sp
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                // Separator aligned with picker numbers
+                Box(
+                    modifier = Modifier
+                        .width(20.dp)
+                        .height(80.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = ":",
+                        fontSize = 36.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = "secs",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center
+                    )
+                    Picker(
+                        modifier = Modifier
+                            .width(60.dp)
+                            .height(80.dp),
+                        state = secondsPickerState,
+                        readOnly = false
+                    ) { index ->
+                        Text(
+                            text = secondsOptions[index].toString().padStart(2, '0'),
+                            fontSize = 36.sp, // Increased font size from 26.sp to 30.sp
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = {
+                    val totalSeconds = selectedMinutes * 60 + selectedSeconds
+                    if (totalSeconds > 0) {
+                        onStart(totalSeconds)
+                    }
+                },
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth(0.8f)
+                    .height(52.dp)
+            ) {
+                Text(
+                    "Start Timer",
+                    fontSize = 20.sp
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

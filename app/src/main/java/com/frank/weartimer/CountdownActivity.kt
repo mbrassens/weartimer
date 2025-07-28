@@ -47,29 +47,21 @@ class CountdownActivity : ComponentActivity() {
 
     private val NOTIFICATION_ID = 1001
     private val CHANNEL_ID = "timer_channel"
+    private val PREFS_NAME = "timer_state"
+    private val KEY_TIMER_RUNNING = "timer_running"
+    private val KEY_TIMER_FINISHED = "timer_finished"
+    private val KEY_TIMER_START_TIME = "timer_start_time"
+    private val KEY_TIMER_DURATION = "timer_duration"
+    private val KEY_TIMER_END_TIME = "timer_end_time"
 
     companion object {
         const val EXTRA_TIMER_STATE = "timer_state"
         const val STATE_RUNNING = 0
         const val STATE_FINISHED = 1
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        val timerLength = intent.getIntExtra("timer_length", 60)
-        val timerState = intent.getIntExtra(EXTRA_TIMER_STATE, STATE_RUNNING)
-
-        // Create notification channel once
-        createNotificationChannel()
-
-        setContent {
-            CountdownScreen(
-                initialTime = timerLength,
-                initialStateIsFinished = timerState == STATE_FINISHED,
-                onTimerStarted = { startRunningOngoingActivity() },
-                onTimerFinished = { updateOngoingActivityForFinish() },
-                onStopPressed = { stopBuzzing() }
-            )
+        
+        fun isTimerRunning(context: Context): Boolean {
+            val prefs = context.getSharedPreferences("timer_state", Context.MODE_PRIVATE)
+            return prefs.getBoolean("timer_running", false)
         }
     }
 
@@ -90,220 +82,141 @@ class CountdownActivity : ComponentActivity() {
         }
     }
 
-    private fun startRunningOngoingActivity() {
-        if (ongoingActivity != null) {
-            println("DEBUG: OngoingActivity already active, skipping creation.")
-            return
-        }
-
-        try {
-            println("DEBUG: Creating running ongoing activity")
-
-            // Create the ongoing activity for running timer
-            ongoingActivity = OngoingActivity.Builder(
-                this,
-                NOTIFICATION_ID,
-                createRunningNotification()
-            ).setTouchIntent(createPendingIntent(STATE_RUNNING))
-             .build()
-
-            println("DEBUG: OngoingActivity builder created")
-
-            // Apply the ongoing activity
-            ongoingActivity?.apply(this)
-            println("DEBUG: OngoingActivity applied successfully")
-
-            // Also send the notification directly to ensure it shows
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.notify(NOTIFICATION_ID, createRunningNotification().build())
-            println("DEBUG: Notification sent directly")
-
-        } catch (e: Exception) {
-            println("DEBUG: OngoingActivity failed: ${e.message}")
-            e.printStackTrace()
-        }
+    private fun getRemainingTime(): Int {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val endTime = prefs.getLong(KEY_TIMER_END_TIME, 0)
+        val currentTime = System.currentTimeMillis()
+        val remainingMillis = endTime - currentTime
+        return if (remainingMillis > 0) (remainingMillis / 1000).toInt() else 0
     }
 
-    private fun updateOngoingActivityForFinish() {
-        if (isStopping) return
-
-        try {
-            // Update the notification for finished timer
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.notify(NOTIFICATION_ID, createFinishedNotification().build())
-            println("DEBUG: Notification updated for finished timer")
-
-        } catch (e: Exception) {
-            println("DEBUG: OngoingActivity update failed: ${e.message}")
-            e.printStackTrace()
-        }
-
-        // Acquire wake lock to keep screen on
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(
-            PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
-            "Weartimer::WakeLock"
-        )
-        wakeLock?.acquire(10 * 60 * 1000L) // 10 minutes timeout
-        println("DEBUG: Wake lock acquired")
-
-        // Set window flags to bring to front
-        window.addFlags(
-            WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-            WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
-            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-            WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
-        )
-        println("DEBUG: Window flags set")
-
-        // Bring activity to front
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
-            println("DEBUG: setShowWhenLocked and setTurnScreenOn called")
-        }
-
-        // Force the activity to be visible and focused
-        window.clearFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
-        window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
-
-        // Request focus to bring to front
-        try {
-            window.decorView.requestFocus()
-            println("DEBUG: Requested focus")
-        } catch (e: Exception) {
-            println("DEBUG: Request focus failed: ${e.message}")
-        }
-
-        toneGen = ToneGenerator(AudioManager.STREAM_ALARM, 100)
-        vibrator = getSystemService(Vibrator::class.java)
-
-        buzzingTimer = object : CountDownTimer(Long.MAX_VALUE, 1000) {
-            override fun onTick(millisUntilFinished: Long) {
-                if (!isStopping) {
-                    toneGen?.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 1000)
-                    vibrator?.vibrate(500)
-                }
-            }
-            override fun onFinish() {
-                // This won't be called since we're using Long.MAX_VALUE
-            }
-        }.start()
-        println("DEBUG: Buzzing timer started")
+    private fun getOriginalTimerDuration(): Int {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt(KEY_TIMER_DURATION, 0)
     }
 
-    private fun createRunningNotification(): NotificationCompat.Builder {
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-        // Ensure channel importance is correct for running timer
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = notificationManager.getNotificationChannel(CHANNEL_ID)
-            if (channel?.importance != NotificationManager.IMPORTANCE_LOW) {
-                // Recreate channel if importance needs to be changed
-                notificationManager.deleteNotificationChannel(CHANNEL_ID)
-                createNotificationChannel() // This will create it with low importance
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        // Check if there's an existing timer running
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val isTimerRunning = prefs.getBoolean(KEY_TIMER_RUNNING, false)
+        val isTimerFinished = prefs.getBoolean(KEY_TIMER_FINISHED, false)
+        
+        println("DEBUG: onCreate - isTimerRunning: $isTimerRunning, isTimerFinished: $isTimerFinished")
+        
+        var timerLength: Int
+        var timerState: Int
+        var originalDuration: Int
+        
+        // Check if this is a request to just view the current timer (from tile)
+        val requestedTimerLength = intent.getIntExtra("timer_length", 60)
+        
+        println("DEBUG: onCreate - requestedTimerLength: $requestedTimerLength")
+        
+        if (requestedTimerLength == -1) {
+            // Just view current timer (from tile when timer is running)
+            if (isTimerRunning && !isTimerFinished) {
+                timerLength = getRemainingTime()
+                timerState = STATE_RUNNING
+                originalDuration = getOriginalTimerDuration()
+                println("DEBUG: Viewing current timer with ${timerLength} seconds remaining")
+            } else if (isTimerFinished) {
+                // Timer has finished, show the finished screen
+                timerLength = 0
+                timerState = STATE_FINISHED
+                originalDuration = getOriginalTimerDuration()
+                println("DEBUG: Showing finished timer screen")
+            } else {
+                // No timer running, go back to main activity
+                println("DEBUG: No timer running, going back to MainActivity")
+                val intent = Intent(this, MainActivity::class.java)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                startActivity(intent)
+                finish()
+                return
+            }
+        } else if (isTimerRunning && !isTimerFinished) {
+            // Restore existing timer
+            timerLength = getRemainingTime()
+            timerState = STATE_RUNNING
+            originalDuration = getOriginalTimerDuration()
+            println("DEBUG: Restoring timer with ${timerLength} seconds remaining")
+        } else if (isTimerFinished) {
+            // Timer has finished, show the finished screen
+            timerLength = 0
+            timerState = STATE_FINISHED
+            originalDuration = getOriginalTimerDuration()
+            println("DEBUG: Showing finished timer screen")
+        } else {
+            // Start new timer
+            timerLength = requestedTimerLength
+            timerState = intent.getIntExtra(EXTRA_TIMER_STATE, STATE_RUNNING)
+            originalDuration = timerLength
+            
+            // Start the TimerService for new timers
+            if (timerState == STATE_RUNNING) {
+                val serviceIntent = Intent(this, TimerService::class.java)
+                serviceIntent.putExtra(TimerService.EXTRA_TIMER_DURATION, timerLength)
+                startService(serviceIntent)
             }
         }
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("⏱️ Timer Running")
-            .setContentText("Tap to view timer")
-            .setSmallIcon(android.R.drawable.ic_menu_recent_history)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setAutoCancel(false)
-            .setOngoing(true)
-            .setContentIntent(createPendingIntent(STATE_RUNNING))
-    }
+        println("DEBUG: onCreate - final timerLength: $timerLength, timerState: $timerState")
 
-    private fun createFinishedNotification(): NotificationCompat.Builder {
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        // Create notification channel once
+        createNotificationChannel()
 
-        // Ensure channel importance is correct for finished timer (high)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = notificationManager.getNotificationChannel(CHANNEL_ID)
-            if (channel?.importance != NotificationManager.IMPORTANCE_HIGH) {
-                // Recreate channel with high importance
-                notificationManager.deleteNotificationChannel(CHANNEL_ID)
-                val newChannel = NotificationChannel(
-                    CHANNEL_ID,
-                    "Timer Notifications",
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = "Timer finished notifications"
-                    enableVibration(true)
-                    enableLights(true)
-                    setShowBadge(true)
-                }
-                notificationManager.createNotificationChannel(newChannel)
-            }
+        setContent {
+            CountdownScreen(
+                initialTime = timerLength,
+                originalDuration = originalDuration,
+                initialStateIsFinished = timerState == STATE_FINISHED,
+                onTimerStarted = { /* Service handles this */ },
+                onTimerFinished = { /* Service handles this */ },
+                onStopPressed = { stopTimer() }
+            )
         }
-
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("⏰ Timer Finished!")
-            .setContentText("Tap to stop alarm")
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setAutoCancel(false)
-            .setOngoing(true)
-            .setContentIntent(createPendingIntent(STATE_FINISHED))
     }
 
-    private fun createPendingIntent(state: Int): PendingIntent {
-        val intent = Intent(this, CountdownActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            putExtra(EXTRA_TIMER_STATE, state)
+    override fun onBackPressed() {
+        // Check if timer is finished
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val isTimerFinished = prefs.getBoolean(KEY_TIMER_FINISHED, false)
+        
+        if (isTimerFinished) {
+            // If timer is finished, swipe to dismiss closes the app
+            finishAffinity()
+        } else {
+            // If timer is running, return to watch face (home screen)
+            val homeIntent = Intent(Intent.ACTION_MAIN)
+            homeIntent.addCategory(Intent.CATEGORY_HOME)
+            homeIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            startActivity(homeIntent)
+            finish()
         }
-
-        return PendingIntent.getActivity(
-            this, state, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
     }
 
-    private fun stopBuzzing() {
-        println("DEBUG: stopBuzzing called")
-        if (isStopping) return // Prevent multiple calls
-
-        isStopping = true
-        buzzingTimer?.cancel()
-        toneGen?.release()
-        toneGen = null
-        vibrator?.cancel() // Stop ongoing vibration
-
-        // Release wake lock
-        wakeLock?.release()
-        wakeLock = null
-
-        // Clear ongoing activity by canceling notification
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.cancel(NOTIFICATION_ID)
-        ongoingActivity = null // Nullify the reference
-
-        finish()
+    private fun stopTimer() {
+        // Stop the TimerService
+        val serviceIntent = Intent(this, TimerService::class.java)
+        serviceIntent.action = TimerService.ACTION_STOP_TIMER
+        startService(serviceIntent)
+        
+        // Close the app completely
+        finishAffinity()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        println("DEBUG: onDestroy called")
-        // Only perform cleanup if not already stopping via stopBuzzing()
-        if (!isStopping) {
-            buzzingTimer?.cancel()
-            toneGen?.release()
-            vibrator?.cancel()
-            wakeLock?.release()
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.cancel(NOTIFICATION_ID)
-            ongoingActivity = null
-        }
+        // Service handles cleanup
     }
 }
 
 @Composable
 fun CountdownScreen(
     initialTime: Int,
+    originalDuration: Int,
     initialStateIsFinished: Boolean,
     onTimerStarted: () -> Unit,
     onTimerFinished: () -> Unit,
@@ -315,15 +228,19 @@ fun CountdownScreen(
     var isFinished by remember { mutableStateOf(initialStateIsFinished) }
     var timer: CountDownTimer? by remember { mutableStateOf(null) }
 
+    println("DEBUG: CountdownScreen - initialTime: $initialTime, originalDuration: $originalDuration, initialStateIsFinished: $initialStateIsFinished")
+    println("DEBUG: CountdownScreen - isRunning: $isRunning, isFinished: $isFinished")
+
     // If starting in finished state, immediately call onTimerFinished
     LaunchedEffect(initialStateIsFinished) {
         if (initialStateIsFinished) {
+            println("DEBUG: CountdownScreen - LaunchedEffect called onTimerFinished")
             onTimerFinished()
         }
     }
 
     // Calculate progress for the arc using precise time (0.0 to 1.0) with smooth animation
-    val effectiveInitialTime = initialTime.toFloat()
+    val effectiveInitialTime = originalDuration.toFloat()
     val targetProgress by remember {
         derivedStateOf {
             if (isFinished) 0f else if (preciseTimeLeft > 0f) {
@@ -386,7 +303,10 @@ fun CountdownScreen(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
+        println("DEBUG: CountdownScreen - Rendering UI, isFinished: $isFinished")
+        
         if (isFinished) {
+            println("DEBUG: CountdownScreen - Showing finished timer screen")
             // Flashing red screen with stop button
             Box(
                 modifier = Modifier
@@ -425,6 +345,7 @@ fun CountdownScreen(
                 }
             }
         } else {
+            println("DEBUG: CountdownScreen - Showing running timer screen")
             // Timer countdown with animated circular progress arc
             Box(
                 modifier = Modifier.fillMaxSize(),

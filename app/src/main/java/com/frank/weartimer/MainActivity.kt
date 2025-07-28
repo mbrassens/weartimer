@@ -26,17 +26,42 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.wear.compose.material.Vignette
 import androidx.wear.compose.material.VignettePosition
+import android.content.Context
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            StartTimerScreen { timerLength ->
-                val intent = Intent(this, CountdownActivity::class.java)
-                intent.putExtra("timer_length", timerLength)
-                startActivity(intent)
+        
+        // Check if a timer is already running
+        val isTimerRunning = isTimerRunning()
+        
+        if (isTimerRunning) {
+            // Redirect to CountdownActivity if timer is running
+            val intent = Intent(this, CountdownActivity::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            startActivity(intent)
+            finish()
+        } else {
+            // Show timer picker if no timer is running
+            setContent {
+                StartTimerScreen { timerLength ->
+                    val intent = Intent(this, CountdownActivity::class.java)
+                    intent.putExtra("timer_length", timerLength)
+                    startActivity(intent)
+                    finish() // Close MainActivity when starting timer
+                }
             }
         }
+    }
+    
+    private fun isTimerRunning(): Boolean {
+        // Check if CountdownActivity is in the foreground or if there's an ongoing timer
+        val prefs = getSharedPreferences("timer_state", Context.MODE_PRIVATE)
+        val isTimerRunning = prefs.getBoolean("timer_running", false)
+        val isTimerFinished = prefs.getBoolean("timer_finished", false)
+        
+        // Return true if timer is running OR finished (both should redirect to CountdownActivity)
+        return isTimerRunning || isTimerFinished
     }
 }
 

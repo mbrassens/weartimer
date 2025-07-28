@@ -22,10 +22,10 @@
             android:text="@string/hello_world" />
 
         <Button
-            android:id="@+id/btn_tictactoe"
+            android:id="@+id/btn_timer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/launch_tictactoe"
+            android:text="@string/launch_timer"
             android:layout_marginTop="16dp" />
 
     </LinearLayout>

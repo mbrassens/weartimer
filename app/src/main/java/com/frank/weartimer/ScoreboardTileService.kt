@@ -15,10 +15,10 @@ import androidx.wear.tiles.DimensionBuilders
 import androidx.wear.tiles.ColorBuilders
 
 private const val RESOURCES_VERSION = "1"
-private const val PREFS_NAME = "tictactoe_scores"
+private const val PREFS_NAME = "timer_scores"
 private const val KEY_X_SCORE = "xScore"
 private const val KEY_O_SCORE = "oScore"
-private const val TICTACTOE_ACTIVITY_CLASS_NAME = "com.frank.weartictactoe.TicTacToeActivity"
+private const val TICTACTOE_ACTIVITY_CLASS_NAME = "com.frank.weartimer.TicTacToeActivity"
 
 class ScoreboardTileService : TileService() {
     override fun onTileRequest(requestParams: TileRequest): ListenableFuture<TileBuilders.Tile> {

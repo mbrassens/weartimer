@@ -34,7 +34,7 @@ class TicTacToeActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         
         // Check if we should reset the game (from tile tap)
-        val prefs = getSharedPreferences("tictactoe_scores", MODE_PRIVATE)
+        val prefs = getSharedPreferences("timer_scores", MODE_PRIVATE)
         val shouldResetGame = prefs.getBoolean("should_reset_game", false)
         
         // Clear the flag after reading it
@@ -56,7 +56,7 @@ fun TicTacToePager(shouldResetGame: Boolean) {
     val pagerState = rememberPagerState(pageCount = { 2 })
     
     val context = LocalContext.current
-    val prefs = context.getSharedPreferences("tictactoe_scores", Context.MODE_PRIVATE)
+    val prefs = context.getSharedPreferences("timer_scores", Context.MODE_PRIVATE)
     
     // Load scores from SharedPreferences to preserve them across activity restarts
     var xScore by rememberSaveable { mutableStateOf(prefs.getInt("xScore", 0)) }

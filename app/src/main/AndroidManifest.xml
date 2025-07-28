@@ -3,6 +3,9 @@
     package="com.frank.weartimer">
 
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <uses-feature android:name="android.hardware.type.watch" />
 
@@ -35,7 +38,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".TicTacToeActivity"
+            android:name=".CountdownActivity"
             android:exported="true"
             android:label="@string/app_name" />
         <service

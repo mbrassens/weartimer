@@ -58,4 +58,6 @@ dependencies {
     // ProtoLayout for Wear Tiles
     implementation "androidx.wear.protolayout:protolayout:1.3.0"
     implementation "androidx.wear.protolayout:protolayout-material:1.3.0"
+    // Wear OS Ongoing Activity
+    implementation "androidx.wear:wear-ongoing:1.0.0"
 }

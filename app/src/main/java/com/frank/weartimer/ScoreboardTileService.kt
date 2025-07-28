@@ -1,4 +1,4 @@
-package com.frank.weartictactoe
+package com.frank.weartimer
 
 import androidx.wear.tiles.ActionBuilders
 import androidx.wear.tiles.LayoutElementBuilders

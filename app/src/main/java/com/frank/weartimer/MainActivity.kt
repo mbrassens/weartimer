@@ -1,4 +1,4 @@
-package com.frank.weartictactoe
+package com.frank.weartimer
 
 import android.app.Activity
 import android.content.Intent

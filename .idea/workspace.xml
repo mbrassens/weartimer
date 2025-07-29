@@ -27,17 +27,16 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="6019b5ba-6b02-4f09-b780-6452b38fc926" name="Changes" comment="Enhance HelloWorldTileService to launch CountdownActivity with a 1-minute timer and add preview functionality. Update Gradle dependencies for Wear Tiles tooling and ProtoLayout expression. Modify IDE configuration files, including deployment targets, execution history, and file hashes.">
-      <change afterPath="$PROJECT_DIR$/app/src/main/java/com/frank/weartimer/TimerOldTileService.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/src/main/java/com/frank/weartimer/OneMinuteTimerComplicationService.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/8.14/executionHistory/executionHistory.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.14/executionHistory/executionHistory.bin" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/8.14/executionHistory/executionHistory.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.14/executionHistory/executionHistory.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/8.14/fileHashes/fileHashes.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.14/fileHashes/fileHashes.bin" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/8.14/fileHashes/fileHashes.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.14/fileHashes/fileHashes.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/8.14/fileHashes/resourceHashesCache.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.14/fileHashes/resourceHashesCache.bin" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/buildOutputCleanup/buildOutputCleanup.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/buildOutputCleanup/buildOutputCleanup.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/app/build.gradle" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/frank/weartimer/HelloWorldTileService.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/frank/weartimer/TimerService.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/frank/weartimer/TimerService.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/frank/weartimer/TimerTileService.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/frank/weartimer/TimerTileService.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -99,26 +98,47 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Android App.Weartictactoe.executor": "Run",
-    "Android App.app.executor": "Run",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.cidr.known.project.marker": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.readMode.enableVisualFormatting": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "Wear OS Tile.HelloWorldTileService.executor": "Run",
-    "cf.first.check.clang-format": "false",
-    "cidr.known.project.marker": "true",
-    "git-widget-placeholder": "main",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/Users/frankdeschenes/AndroidStudioProjects/weartimer",
-    "settings.editor.selected.configurable": "com.android.studio.ml.bot.mainConfigurable"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Android App.Weartictactoe.executor&quot;: &quot;Run&quot;,
+    &quot;Android App.app.executor&quot;: &quot;Run&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;Wear OS Tile.HelloWorldTileService.executor&quot;: &quot;Run&quot;,
+    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/frankdeschenes/AndroidStudioProjects/weartimer&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.android.studio.ml.bot.mainConfigurable&quot;
   }
-}]]></component>
-  <component name="RunManager" selected="Android App.app">
+}</component>
+  <component name="RunManager" selected="Wear OS Complication.app.OneMinuteTimerComplicationService">
+    <configuration name="app.OneMinuteTimerComplicationService" type="AndroidComplicationConfigurationType" factoryName="AndroidComplicationConfigurationFactory" show_console_on_std_err="false" show_console_on_std_out="false">
+      <module name="weartimer.app" />
+      <option name="allowRunningInParallel" value="false" />
+      <option name="projectPathOnTarget" />
+      <option name="selectedOptions">
+        <list />
+      </option>
+      <LaunchOptions>
+        <option name="chosenSlots">
+          <list />
+        </option>
+        <option name="componentName" value="com.frank.weartimer.OneMinuteTimerComplicationService" />
+      </LaunchOptions>
+      <DeployOptions>
+        <option name="pmInstallFlags" value="" />
+      </DeployOptions>
+      <method v="2">
+        <option name="Make" enabled="true" />
+        <option name="Android.Gradle.BeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="Weartictactoe" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false" singleton="true">
       <module name="weartictactoe.app" />
       <option name="ANDROID_RUN_CONFIGURATION_SCHEMA_VERSION" value="1" />
@@ -263,24 +283,6 @@
         <option name="Android.Gradle.BeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration name="HelloWorldTileService" type="AndroidTileConfigurationType" factoryName="AndroidTileConfigurationFactory" temporary="true" show_console_on_std_err="false" show_console_on_std_out="false">
-      <module name="weartimer.app" />
-      <option name="allowRunningInParallel" value="false" />
-      <option name="projectPathOnTarget" />
-      <option name="selectedOptions">
-        <list />
-      </option>
-      <LaunchOptions>
-        <option name="componentName" value="com.frank.weartimer.HelloWorldTileService" />
-      </LaunchOptions>
-      <DeployOptions>
-        <option name="pmInstallFlags" value="" />
-      </DeployOptions>
-      <method v="2">
-        <option name="Make" enabled="true" />
-        <option name="Android.Gradle.BeforeRunTask" enabled="true" />
-      </method>
-    </configuration>
     <configuration name="app.ScoreboardTileService" type="AndroidTileConfigurationType" factoryName="AndroidTileConfigurationFactory" show_console_on_std_err="false" show_console_on_std_out="false">
       <module name="weartimer.app" />
       <option name="allowRunningInParallel" value="false" />
@@ -290,6 +292,24 @@
       </option>
       <LaunchOptions>
         <option name="componentName" value="com.frank.weartimer.ScoreboardTileService" />
+      </LaunchOptions>
+      <DeployOptions>
+        <option name="pmInstallFlags" value="" />
+      </DeployOptions>
+      <method v="2">
+        <option name="Make" enabled="true" />
+        <option name="Android.Gradle.BeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="app.TimerOldTileService" type="AndroidTileConfigurationType" factoryName="AndroidTileConfigurationFactory" show_console_on_std_err="false" show_console_on_std_out="false">
+      <module name="weartimer.app" />
+      <option name="allowRunningInParallel" value="false" />
+      <option name="projectPathOnTarget" />
+      <option name="selectedOptions">
+        <list />
+      </option>
+      <LaunchOptions>
+        <option name="componentName" value="com.frank.weartimer.TimerOldTileService" />
       </LaunchOptions>
       <DeployOptions>
         <option name="pmInstallFlags" value="" />
@@ -320,15 +340,11 @@
     <list>
       <item itemvalue="Android App.app" />
       <item itemvalue="Android App.Weartictactoe" />
+      <item itemvalue="Wear OS Complication.app.OneMinuteTimerComplicationService" />
+      <item itemvalue="Wear OS Tile.app.TimerOldTileService" />
       <item itemvalue="Wear OS Tile.app.TimerTileService" />
       <item itemvalue="Wear OS Tile.app.ScoreboardTileService" />
-      <item itemvalue="Wear OS Tile.HelloWorldTileService" />
     </list>
-    <recent_temporary>
-      <list>
-        <item itemvalue="Wear OS Tile.HelloWorldTileService" />
-      </list>
-    </recent_temporary>
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
@@ -416,12 +432,12 @@
         </entry>
         <entry key="com.frank.weartimer">
           <value>
-            <CheckInfo lastCheckTimestamp="1753724181666" />
+            <CheckInfo lastCheckTimestamp="1753817079502" />
           </value>
         </entry>
         <entry key="com.frank.weartimer.test">
           <value>
-            <CheckInfo lastCheckTimestamp="1753724181663" />
+            <CheckInfo lastCheckTimestamp="1753817079503" />
           </value>
         </entry>
       </map>

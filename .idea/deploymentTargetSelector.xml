@@ -8,7 +8,7 @@
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="HelloWorldTileService">
+      <SelectionState runConfigName="app.OneMinuteTimerComplicationService">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
     </selectionStates>

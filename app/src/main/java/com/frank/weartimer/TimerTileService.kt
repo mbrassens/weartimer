@@ -1,5 +1,6 @@
 package com.frank.weartimer
 
+import androidx.compose.runtime.Composable
 import androidx.wear.tiles.ActionBuilders
 import androidx.wear.tiles.LayoutElementBuilders
 import androidx.wear.tiles.ModifiersBuilders
@@ -12,8 +13,7 @@ import androidx.wear.tiles.TimelineBuilders
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import androidx.wear.tiles.DimensionBuilders
-import androidx.wear.tiles.ColorBuilders // This is not strictly needed for this specific tile logic
-
+import com.frank.weartimer.util.WearPreviewLargeRound
 
 private const val RESOURCES_VERSION = "1"
 private const val COUNTDOWN_ACTIVITY_CLASS_NAME = "com.frank.weartimer.CountdownActivity"

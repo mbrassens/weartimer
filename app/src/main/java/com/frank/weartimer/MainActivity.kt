@@ -1,5 +1,6 @@
 package com.frank.weartimer
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -19,16 +20,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.wear.compose.material.Picker
 import androidx.wear.compose.material.rememberPickerState
-import androidx.wear.compose.material.PositionIndicator
 import androidx.wear.compose.material.TimeText
 import androidx.wear.compose.material.Scaffold
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.wear.compose.material.Vignette
-import androidx.wear.compose.material.VignettePosition
 import android.content.Context
 
 class MainActivity : ComponentActivity() {
+    @SuppressLint("WrongConstant")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -96,7 +95,7 @@ fun StartTimerScreen(onStart: (Int) -> Unit) {
             Spacer(modifier = Modifier.height(16.dp))
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(-16.dp), // Negative spacing to bring pickers closer
+                horizontalArrangement = Arrangement.spacedBy((-16).dp), // Negative spacing to bring pickers closer
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -116,7 +115,7 @@ fun StartTimerScreen(onStart: (Int) -> Unit) {
                             .height(80.dp)
                             .focusRequester(focusRequester),
                         state = minutesPickerState,
-                        readOnly = false
+                        contentDescription = "minutes"
                     ) { index ->
                         Text(
                             text = minutesOptions[index].toString().padStart(2, '0'),
@@ -156,7 +155,7 @@ fun StartTimerScreen(onStart: (Int) -> Unit) {
                             .width(60.dp)
                             .height(80.dp),
                         state = secondsPickerState,
-                        readOnly = false
+                        contentDescription = "seconds"
                     ) { index ->
                         Text(
                             text = secondsOptions[index].toString().padStart(2, '0'),

@@ -30,20 +30,29 @@ import androidx.wear.compose.material.Text
 
 class CountdownActivity : ComponentActivity() {
     private val CHANNEL_ID = "timer_channel"
-    private val PREFS_NAME = "timer_state"
-    private val KEY_TIMER_RUNNING = "timer_running"
-    private val KEY_TIMER_FINISHED = "timer_finished"
-    private val KEY_TIMER_DURATION = "timer_duration"
-    private val KEY_TIMER_END_TIME = "timer_end_time"
 
     companion object {
+        private const val PREFS_NAME = "timer_state"
+        private const val KEY_TIMER_RUNNING = "timer_running"
+        private const val KEY_TIMER_FINISHED = "timer_finished"
+        private const val KEY_TIMER_DURATION = "timer_duration"
+        private const val KEY_TIMER_END_TIME = "timer_end_time"
+
         const val EXTRA_TIMER_STATE = "timer_state"
         const val STATE_RUNNING = 0
         const val STATE_FINISHED = 1
 
         fun isTimerRunning(context: Context): Boolean {
-            val prefs = context.getSharedPreferences("timer_state", Context.MODE_PRIVATE)
-            return prefs.getBoolean("timer_running", false)
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            return prefs.getBoolean(KEY_TIMER_RUNNING, false)
+        }
+
+        fun getRemainingTime(context: Context): Int {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val endTime = prefs.getLong(KEY_TIMER_END_TIME, 0)
+            val currentTime = System.currentTimeMillis()
+            val remainingMillis = endTime - currentTime
+            return if (remainingMillis > 0) (remainingMillis / 1000).toInt() else 0
         }
     }
 
@@ -62,14 +71,6 @@ class CountdownActivity : ComponentActivity() {
             }
             notificationManager.createNotificationChannel(channel)
         }
-    }
-
-    private fun getRemainingTime(): Int {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val endTime = prefs.getLong(KEY_TIMER_END_TIME, 0)
-        val currentTime = System.currentTimeMillis()
-        val remainingMillis = endTime - currentTime
-        return if (remainingMillis > 0) (remainingMillis / 1000).toInt() else 0
     }
 
     private fun getOriginalTimerDuration(): Int {
@@ -92,7 +93,7 @@ class CountdownActivity : ComponentActivity() {
 
         if (requestedTimerLength == -1) {
             if (isTimerRunning && !isTimerFinished) {
-                timerLength = getRemainingTime()
+                timerLength = getRemainingTime(this)
                 timerState = STATE_RUNNING
                 originalDuration = getOriginalTimerDuration()
             } else if (isTimerFinished) {
@@ -107,7 +108,7 @@ class CountdownActivity : ComponentActivity() {
                 return
             }
         } else if (isTimerRunning && !isTimerFinished) {
-            timerLength = getRemainingTime()
+            timerLength = getRemainingTime(this)
             timerState = STATE_RUNNING
             originalDuration = getOriginalTimerDuration()
         } else if (isTimerFinished) {
@@ -367,7 +368,7 @@ fun CountdownScreen(
                                 imageVector = Icons.Default.RestartAlt,
                                 contentDescription = "Restart",
                                 tint = Color.Black,
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier.size(26.dp)
                             )
                         }
                     }

@@ -1,19 +1,16 @@
 package com.frank.weartimer
 
 import android.content.Context
-import androidx.wear.tiles.ActionBuilders
-import androidx.wear.tiles.DeviceParametersBuilders
-import androidx.wear.tiles.LayoutElementBuilders
-import androidx.wear.tiles.ModifiersBuilders
-import androidx.wear.tiles.RequestBuilders.ResourcesRequest
-import androidx.wear.tiles.RequestBuilders.TileRequest
-import androidx.wear.tiles.ResourceBuilders
-import androidx.wear.tiles.TileService
+import androidx.wear.protolayout.ActionBuilders
+import androidx.wear.protolayout.ColorBuilders
+import androidx.wear.protolayout.DimensionBuilders
+import androidx.wear.protolayout.LayoutElementBuilders
+import androidx.wear.protolayout.ModifiersBuilders
+import androidx.wear.protolayout.TimelineBuilders
+import androidx.wear.protolayout.expression.DynamicBuilders
+import androidx.wear.tiles.RequestBuilders
 import androidx.wear.tiles.TileBuilders
-import androidx.wear.tiles.TimelineBuilders
-import androidx.wear.tiles.DimensionBuilders
-import androidx.wear.tiles.ColorBuilders
-import androidx.wear.tiles.material.layouts.PrimaryLayout
+import androidx.wear.tiles.TileService
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import java.util.Locale
@@ -24,16 +21,14 @@ private const val COUNTDOWN_ACTIVITY_CLASS_NAME = "com.frank.weartimer.Countdown
 private const val MAIN_ACTIVITY_CLASS_NAME = "com.frank.weartimer.MainActivity"
 
 class TimerTileService : TileService() {
-
     companion object {
         fun requestTileUpdate(context: Context) {
             getUpdater(context).requestUpdate(TimerTileService::class.java)
         }
     }
 
-    override fun onTileRequest(requestParams: TileRequest): ListenableFuture<TileBuilders.Tile> {
+    override fun onTileRequest(requestParams: RequestBuilders.TileRequest): ListenableFuture<TileBuilders.Tile> {
         val isTimerRunning = CountdownActivity.isTimerRunning(applicationContext)
-        val deviceParams = requestParams.deviceParameters
 
         val layout = if (isTimerRunning) {
             val remainingTime = CountdownActivity.getRemainingTime(applicationContext)
@@ -45,119 +40,114 @@ class TimerTileService : TileService() {
                 ActionBuilders.AndroidActivity.Builder()
                     .setPackageName(packageName)
                     .setClassName(COUNTDOWN_ACTIVITY_CLASS_NAME)
-                    .addKeyToExtraMapping("timer_length", ActionBuilders.intExtra(-1))
+                    .addKeyToExtraMapping("timer_length", ActionBuilders.intExtra(60))
                     .build()
             ).build()
 
-            LayoutElementBuilders.Box.Builder()
-                .setModifiers(
-                    ModifiersBuilders.Modifiers.Builder()
-                        .setClickable(
-                            ModifiersBuilders.Clickable.Builder()
-                                .setOnClick(openCountdownActivity)
+            LayoutElementBuilders.Layout.Builder()
+                .setRoot(
+                    LayoutElementBuilders.Box.Builder()
+                        .setModifiers(
+                            ModifiersBuilders.Modifiers.Builder()
+                                .setClickable(
+                                    ModifiersBuilders.Clickable.Builder()
+                                        .setOnClick(openCountdownActivity)
+                                        .build()
+                                )
                                 .build()
                         )
-                        .build()
-                )
-                .addContent(
-                    LayoutElementBuilders.Text.Builder()
-                        .setText(timeText)
-                        .setFontStyle(
-                            LayoutElementBuilders.FontStyle.Builder()
-                                .setSize(DimensionBuilders.SpProp.Builder().setValue(48f).build())
+                        .addContent(
+                            LayoutElementBuilders.Text.Builder()
+                                .setText(timeText)
+                                .setFontStyle(
+                                    LayoutElementBuilders.FontStyle.Builder()
+                                        .setSize(DimensionBuilders.sp(48f))
+                                        .build()
+                                )
                                 .build()
                         )
                         .build()
                 )
                 .build()
         } else {
-            if (deviceParams == null) {
-                // Fallback layout if device parameters are not available
-                LayoutElementBuilders.Text.Builder().setText("Cannot load tile on this device.").build()
-            } else {
-                val oneMinAction = ActionBuilders.LaunchAction.Builder().setAndroidActivity(
-                    ActionBuilders.AndroidActivity.Builder()
-                        .setPackageName(packageName)
-                        .setClassName(COUNTDOWN_ACTIVITY_CLASS_NAME)
-                        .addKeyToExtraMapping("timer_length", ActionBuilders.intExtra(60))
+            LayoutElementBuilders.Layout.Builder()
+                .setRoot(
+                    LayoutElementBuilders.Column.Builder()
+                        .addContent(
+                            LayoutElementBuilders.Text.Builder()
+                                .setText("Quick Timer")
+                                .setFontStyle(
+                                    LayoutElementBuilders.FontStyle.Builder()
+                                        .setSize(DimensionBuilders.sp(18f))
+                                        .build()
+                                )
+                                .build()
+                        )
+                        .addContent(
+                            LayoutElementBuilders.Spacer.Builder()
+                                .setHeight(DimensionBuilders.dp(8f))
+                                .build()
+                        )
+                        .addContent(
+                            LayoutElementBuilders.Row.Builder()
+                                .addContent(createTimerButton("1m", 60))
+                                .addContent(LayoutElementBuilders.Spacer.Builder().setWidth(DimensionBuilders.dp(8f)).build())
+                                .addContent(createTimerButton("2m", 120))
+                                .addContent(LayoutElementBuilders.Spacer.Builder().setWidth(DimensionBuilders.dp(8f)).build())
+                                .addContent(createTimerButton("5m", 300))
+                                .build()
+                        )
+                        .addContent(
+                            LayoutElementBuilders.Spacer.Builder()
+                                .setHeight(DimensionBuilders.dp(8f))
+                                .build()
+                        )
+                        .addContent(
+                            createTimerButton("Custom", null)
+                        )
                         .build()
-                ).build()
-
-                val twoMinAction = ActionBuilders.LaunchAction.Builder().setAndroidActivity(
-                    ActionBuilders.AndroidActivity.Builder()
-                        .setPackageName(packageName)
-                        .setClassName(COUNTDOWN_ACTIVITY_CLASS_NAME)
-                        .addKeyToExtraMapping("timer_length", ActionBuilders.intExtra(120))
-                        .build()
-                ).build()
-
-                val fiveMinAction = ActionBuilders.LaunchAction.Builder().setAndroidActivity(
-                    ActionBuilders.AndroidActivity.Builder()
-                        .setPackageName(packageName)
-                        .setClassName(COUNTDOWN_ACTIVITY_CLASS_NAME)
-                        .addKeyToExtraMapping("timer_length", ActionBuilders.intExtra(300))
-                        .build()
-                ).build()
-
-                val customAction = ActionBuilders.LaunchAction.Builder().setAndroidActivity(
-                    ActionBuilders.AndroidActivity.Builder()
-                        .setPackageName(packageName)
-                        .setClassName(MAIN_ACTIVITY_CLASS_NAME)
-                        .build()
-                ).build()
-
-                val oneMinButton = createCustomButton("1m", oneMinAction, 18f, 15f)
-                val twoMinButton = createCustomButton("2m", twoMinAction, 18f, 15f)
-                val fiveMinButton = createCustomButton("5m", fiveMinAction, 18f, 15f)
-                val customButton = createCustomButton("Custom", customAction, 18f, 15f)
-
-
-                val buttonLayout = LayoutElementBuilders.Column.Builder()
-                    .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-                    .addContent(LayoutElementBuilders.Spacer.Builder().setHeight(DimensionBuilders.DpProp.Builder().setValue(8f).build()).build())
-                    .addContent(
-                        LayoutElementBuilders.Row.Builder()
-                            .addContent(oneMinButton)
-                            .addContent(LayoutElementBuilders.Spacer.Builder().setWidth(DimensionBuilders.DpProp.Builder().setValue(8f).build()).build())
-                            .addContent(twoMinButton)
-                            .addContent(LayoutElementBuilders.Spacer.Builder().setWidth(DimensionBuilders.DpProp.Builder().setValue(8f).build()).build())
-                            .addContent(fiveMinButton)
-                            .build()
-                    )
-                    .addContent(LayoutElementBuilders.Spacer.Builder().setHeight(DimensionBuilders.DpProp.Builder().setValue(8f).build()).build())
-                    .addContent(customButton)
-                    .build()
-
-
-                PrimaryLayout.Builder(deviceParams)
-                    .setPrimaryLabelTextContent(
-                        LayoutElementBuilders.Text.Builder()
-                            .setText("Quick Timer")
-                            .build()
-                    )
-                    .setContent(buttonLayout)
-                    .build()
-            }
+                )
+                .build()
         }
 
-        val tile = TileBuilders.Tile.Builder()
+        val tileBuilder = TileBuilders.Tile.Builder()
             .setResourcesVersion(RESOURCES_VERSION)
-            .setTimeline(
+            .setTileTimeline(
                 TimelineBuilders.Timeline.Builder().addTimelineEntry(
                     TimelineBuilders.TimelineEntry.Builder()
-                        .setLayout(LayoutElementBuilders.Layout.Builder().setRoot(layout).build())
+                        .setLayout(layout)
                         .build()
                 ).build()
             )
 
         if (isTimerRunning) {
-            tile.setFreshnessIntervalMillis(TimeUnit.SECONDS.toMillis(1))
+            tileBuilder.setFreshnessIntervalMillis(TimeUnit.SECONDS.toMillis(1))
         }
 
-        return Futures.immediateFuture(tile.build())
+        return Futures.immediateFuture(tileBuilder.build())
     }
 
-    private fun createCustomButton(text: String, action: ActionBuilders.LaunchAction, fontSize: Float, padding: Float): LayoutElementBuilders.Box {
+    private fun createTimerButton(text: String, durationSeconds: Int?): LayoutElementBuilders.LayoutElement {
+        val activity = if (durationSeconds != null) {
+            ActionBuilders.AndroidActivity.Builder()
+                .setPackageName(packageName)
+                .setClassName(COUNTDOWN_ACTIVITY_CLASS_NAME)
+                .addKeyToExtraMapping(
+                    "timer_length",
+                    ActionBuilders.intExtra(durationSeconds)
+                )
+                .build()
+        } else {
+            ActionBuilders.AndroidActivity.Builder()
+                .setPackageName(packageName)
+                .setClassName(MAIN_ACTIVITY_CLASS_NAME)
+                .build()
+        }
+
+        val action = ActionBuilders.LaunchAction.Builder()
+            .setAndroidActivity(activity)
+            .build()
+
         return LayoutElementBuilders.Box.Builder()
             .setModifiers(
                 ModifiersBuilders.Modifiers.Builder()
@@ -168,7 +158,7 @@ class TimerTileService : TileService() {
                     )
                     .setPadding(
                         ModifiersBuilders.Padding.Builder()
-                            .setAll(DimensionBuilders.DpProp.Builder().setValue(padding).build())
+                            .setAll(DimensionBuilders.dp(15f))
                             .build()
                     )
                     .setBackground(
@@ -176,7 +166,7 @@ class TimerTileService : TileService() {
                             .setColor(ColorBuilders.argb(0xFF749EFA.toInt()))
                             .setCorner(
                                 ModifiersBuilders.Corner.Builder()
-                                    .setRadius(DimensionBuilders.DpProp.Builder().setValue(24f).build())
+                                    .setRadius(DimensionBuilders.dp(24f))
                                     .build()
                             )
                             .build()
@@ -188,7 +178,7 @@ class TimerTileService : TileService() {
                     .setText(text)
                     .setFontStyle(
                         LayoutElementBuilders.FontStyle.Builder()
-                            .setSize(DimensionBuilders.SpProp.Builder().setValue(fontSize).build())
+                            .setSize(DimensionBuilders.sp(18f))
                             .build()
                     )
                     .build()
@@ -196,10 +186,8 @@ class TimerTileService : TileService() {
             .build()
     }
 
-
-    @Deprecated("onResourcesRequest is deprecated for this tile")
-    override fun onResourcesRequest(requestParams: ResourcesRequest): ListenableFuture<ResourceBuilders.Resources> {
-        val resources = ResourceBuilders.Resources.Builder()
+    override fun onResourcesRequest(requestParams: RequestBuilders.ResourcesRequest): ListenableFuture<androidx.wear.tiles.ResourceBuilders.Resources> {
+        val resources = androidx.wear.tiles.ResourceBuilders.Resources.Builder()
             .setVersion(RESOURCES_VERSION)
             .build()
         return Futures.immediateFuture(resources)

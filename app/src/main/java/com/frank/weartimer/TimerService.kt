@@ -72,8 +72,8 @@ class TimerService : Service() {
                 // Update remaining time in SharedPreferences
                 val remainingSeconds = (millisUntilFinished / 1000).toInt()
                 updateRemainingTime(remainingSeconds)
+                TimerOldTileService.requestTileUpdate(applicationContext)
                 TimerTileService.requestTileUpdate(applicationContext)
-                HelloWorldTileService.requestTileUpdate(applicationContext)
             }
 
             override fun onFinish() {
@@ -90,8 +90,8 @@ class TimerService : Service() {
                 
                 // Update notification
                 updateOngoingActivityForFinish()
+                TimerOldTileService.requestTileUpdate(applicationContext)
                 TimerTileService.requestTileUpdate(applicationContext)
-                HelloWorldTileService.requestTileUpdate(applicationContext)
             }
         }.start()
 
@@ -122,8 +122,8 @@ class TimerService : Service() {
         ongoingActivity = null
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancel(NOTIFICATION_ID)
+        TimerOldTileService.requestTileUpdate(applicationContext)
         TimerTileService.requestTileUpdate(applicationContext)
-        HelloWorldTileService.requestTileUpdate(applicationContext)
 
         // Stop service
         stopForeground(true)

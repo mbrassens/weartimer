@@ -27,16 +27,17 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="6019b5ba-6b02-4f09-b780-6452b38fc926" name="Changes" comment="Enhance HelloWorldTileService to launch CountdownActivity with a 1-minute timer and add preview functionality. Update Gradle dependencies for Wear Tiles tooling and ProtoLayout expression. Modify IDE configuration files, including deployment targets, execution history, and file hashes.">
+      <change afterPath="$PROJECT_DIR$/app/src/main/java/com/frank/weartimer/TimerOldTileService.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/8.14/executionHistory/executionHistory.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.14/executionHistory/executionHistory.bin" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/8.14/executionHistory/executionHistory.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.14/executionHistory/executionHistory.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/8.14/fileHashes/fileHashes.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.14/fileHashes/fileHashes.bin" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/8.14/fileHashes/fileHashes.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.14/fileHashes/fileHashes.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/8.14/fileHashes/resourceHashesCache.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.14/fileHashes/resourceHashesCache.bin" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/buildOutputCleanup/buildOutputCleanup.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/buildOutputCleanup/buildOutputCleanup.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/frank/weartimer/HelloWorldTileService.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/frank/weartimer/HelloWorldTileService.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/frank/weartimer/HelloWorldTileService.kt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/frank/weartimer/TimerService.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/frank/weartimer/TimerService.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/tile_preview.png" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/drawable/tile_preview.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/frank/weartimer/TimerTileService.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/frank/weartimer/TimerTileService.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -117,7 +118,7 @@
     "settings.editor.selected.configurable": "com.android.studio.ml.bot.mainConfigurable"
   }
 }]]></component>
-  <component name="RunManager" selected="Wear OS Tile.HelloWorldTileService">
+  <component name="RunManager" selected="Android App.app">
     <configuration name="Weartictactoe" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false" singleton="true">
       <module name="weartictactoe.app" />
       <option name="ANDROID_RUN_CONFIGURATION_SCHEMA_VERSION" value="1" />

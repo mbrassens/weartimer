@@ -1,268 +1,240 @@
+/*
+ * Copyright 2023 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.frank.weartimer
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.media.AudioManager
-import android.media.ToneGenerator
+import android.content.SharedPreferences
+import android.os.Binder
 import android.os.Build
 import android.os.CountDownTimer
 import android.os.IBinder
-import android.os.PowerManager
-import android.os.Vibrator
-import android.view.WindowManager
+import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.lifecycle.LifecycleService
+import androidx.lifecycle.lifecycleScope
 import androidx.wear.ongoing.OngoingActivity
+import androidx.wear.tiles.TileService
+import com.frank.weartimer.util.formatDisplayTime
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 
-class TimerService : Service() {
+sealed class TimerState {
+    object Idle : TimerState()
+    data class Running(val remainingTime: Long) : TimerState()
+    data class Finished(val finalTime: Long) : TimerState()
+}
+
+class TimerService : LifecycleService() {
+    private val binder = TimerBinder()
+    private lateinit var notificationManager: NotificationManager
+    private lateinit var sharedPreferences: SharedPreferences
+
     private var countDownTimer: CountDownTimer? = null
-    private var toneGen: ToneGenerator? = null
-    private var vibrator: Vibrator? = null
-    private var buzzingTimer: CountDownTimer? = null
-    private var wakeLock: PowerManager.WakeLock? = null
-    private var ongoingActivity: OngoingActivity? = null
-    private var isStopping = false
-    private var wakeLockReleased = false
 
-    private val NOTIFICATION_ID = 1001
-    private val CHANNEL_ID = "timer_channel"
-    private val PREFS_NAME = "timer_state"
-    private val KEY_TIMER_RUNNING = "timer_running"
-    private val KEY_TIMER_FINISHED = "timer_finished"
+    private val _timerState = MutableStateFlow<TimerState>(TimerState.Idle)
+    val timerState = _timerState.asStateFlow()
 
-    companion object {
-        const val EXTRA_TIMER_DURATION = "timer_duration"
-        const val ACTION_STOP_TIMER = "stop_timer"
-    }
+    private val _timerInitialValue = MutableStateFlow(0L)
+    val timerInitialValue = _timerInitialValue.asStateFlow()
 
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
+        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        restoreTimerState()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_STOP_TIMER -> {
-                stopTimer()
-                return START_NOT_STICKY
-            }
-            else -> {
-                val timerDuration = intent?.getIntExtra(EXTRA_TIMER_DURATION, 60) ?: 60
-                startTimer(timerDuration)
-                return START_STICKY
+        super.onStartCommand(intent, flags, startId)
+        if (intent?.action == ACTION_STOP_TIMER) {
+            stopTimer()
+            return START_NOT_STICKY
+        }
+        intent?.getIntExtra(EXTRA_TIMER_DURATION, 0)?.let {
+            if (it > 0) {
+                startTimer(it.toLong())
             }
         }
+        return START_STICKY
     }
 
-    private fun startTimer(duration: Int) {
-        // Mark timer as running
-        setTimerRunning(true)
-        setTimerFinished(false)
-        saveTimerState(duration)
+    override fun onBind(intent: Intent): IBinder {
+        super.onBind(intent)
+        return binder
+    }
 
-        // Start ongoing activity
-        startRunningOngoingActivity()
+    private fun startTimer(duration: Long) {
+        _timerInitialValue.value = duration
+        countDownTimer?.cancel()
+        _timerState.value = TimerState.Running(duration)
 
-        // Start the countdown timer
-        countDownTimer = object : CountDownTimer((duration * 1000).toLong(), 1000) {
+        val notificationBuilder = buildNotification(duration)
+
+        val ongoingActivity =
+            OngoingActivity.Builder(
+                applicationContext,
+                NOTIFICATION_ID,
+                notificationBuilder
+            )
+                .setStaticIcon(R.drawable.ic_timer_sandglass_crown)
+                .setTouchIntent(
+                    PendingIntent.getActivity(
+                        this,
+                        0,
+                        Intent(this, MainActivity::class.java),
+                        PendingIntent.FLAG_IMMUTABLE
+                    )
+                )
+                .build()
+        ongoingActivity.apply(applicationContext)
+
+        startForeground(NOTIFICATION_ID, notificationBuilder.build())
+
+        countDownTimer = object : CountDownTimer(duration * 1000, 1000) {
             override fun onTick(millisUntilFinished: Long) {
-                // Update remaining time in SharedPreferences
-                val remainingSeconds = (millisUntilFinished / 1000).toInt()
-                updateRemainingTime(remainingSeconds)
-                TimerOldTileService.requestTileUpdate(applicationContext)
-                TimerTileService.requestTileUpdate(applicationContext)
+                _timerState.value = TimerState.Running(millisUntilFinished)
+                updateNotification(millisUntilFinished)
+                saveTimerState()
+                requestTileUpdate()
             }
 
             override fun onFinish() {
-                // Timer finished
-                println("DEBUG: Timer finished, setting state")
-                setTimerRunning(false)
-                setTimerFinished(true)
-                // Don't clear timer state yet - keep it until user stops the alarm
-                
-                println("DEBUG: Timer state set - running: false, finished: true")
-                
-                // Start buzzing
-                startBuzzing()
-                
-                // Update notification
-                updateOngoingActivityForFinish()
-                TimerOldTileService.requestTileUpdate(applicationContext)
-                TimerTileService.requestTileUpdate(applicationContext)
+                _timerState.value = TimerState.Finished(timerInitialValue.value)
+                saveTimerState()
+                updateNotification(0)
+                requestTileUpdate()
             }
         }.start()
-
-        // Start foreground service
-        startForeground(NOTIFICATION_ID, createRunningNotification().build())
+        saveTimerState()
+        requestTileUpdate()
     }
 
     private fun stopTimer() {
-        isStopping = true
-
-        // Stop timers
         countDownTimer?.cancel()
-        buzzingTimer?.cancel()
-
-        // Release resources
-        toneGen?.release()
-        if (wakeLock != null && !wakeLockReleased) {
-            wakeLock?.release()
-            wakeLockReleased = true
-        }
-
-        // Clear state
-        setTimerRunning(false)
-        setTimerFinished(false)
-        clearTimerState() // Clear timer state when user stops the alarm
-
-        // Clear ongoing activity
-        ongoingActivity = null
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.cancel(NOTIFICATION_ID)
-        TimerOldTileService.requestTileUpdate(applicationContext)
-        TimerTileService.requestTileUpdate(applicationContext)
-
-        // Stop service
+        _timerState.value = TimerState.Idle
         stopForeground(true)
-        stopSelf()
+        saveTimerState()
+        requestTileUpdate()
     }
 
-    private fun startBuzzing() {
-        // Acquire wake lock
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(
-            PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
-            "Weartimer::WakeLock"
-        )
-        wakeLock?.acquire(10 * 60 * 1000L)
-
-        // Start buzzing
-        toneGen = ToneGenerator(AudioManager.STREAM_ALARM, 100)
-        vibrator = getSystemService(Vibrator::class.java)
-
-        buzzingTimer = object : CountDownTimer(Long.MAX_VALUE, 1000) {
-            override fun onTick(millisUntilFinished: Long) {
-                if (!isStopping) {
-                    toneGen?.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 1000)
-                    vibrator?.vibrate(500)
-                }
-            }
-            override fun onFinish() {
-                // This won't be called since we're using Long.MAX_VALUE
-            }
-        }.start()
+    private fun updateNotification(remainingTime: Long) {
+        val notification = buildNotification(remainingTime).build()
+        notificationManager.notify(NOTIFICATION_ID, notification)
     }
 
-    private fun startRunningOngoingActivity() {
-        ongoingActivity = OngoingActivity.Builder(
-            this,
-            NOTIFICATION_ID,
-            createRunningNotification()
-        ).setTouchIntent(createPendingIntent())
-         .build()
-
-        ongoingActivity?.apply(this)
-    }
-
-    private fun updateOngoingActivityForFinish() {
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(NOTIFICATION_ID, createFinishedNotification().build())
-    }
-
-    private fun createNotificationChannel() {
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private fun buildNotification(remainingTime: Long): NotificationCompat.Builder {
+        val channelId = "timer_channel"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                CHANNEL_ID,
+                channelId,
                 "Timer Notifications",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Notifications for timer status"
-                enableVibration(false)
-                enableLights(false)
-                setShowBadge(false)
-            }
+                NotificationManager.IMPORTANCE_DEFAULT
+            )
             notificationManager.createNotificationChannel(channel)
+        }
+
+        val intent = Intent(this, MainActivity::class.java)
+        val pendingIntent =
+            PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+
+        return NotificationCompat.Builder(this, channelId)
+            .setContentTitle("Timer")
+            .setContentText("Remaining time: ${formatDisplayTime(remainingTime)}")
+            .setSmallIcon(R.drawable.ic_timer_sandglass_crown)
+            .setContentIntent(pendingIntent)
+    }
+
+    private fun saveTimerState() {
+        with(sharedPreferences.edit()) {
+            when (val state = timerState.value) {
+                is TimerState.Idle -> {
+                    putBoolean(KEY_TIMER_RUNNING, false)
+                    putBoolean(KEY_TIMER_FINISHED, false)
+                    android.util.Log.d("TimerService", "Saving state: Idle")
+                }
+                is TimerState.Running -> {
+                    putBoolean(KEY_TIMER_RUNNING, true)
+                    putBoolean(KEY_TIMER_FINISHED, false)
+                    putLong(KEY_TIMER_END_TIME, System.currentTimeMillis() + state.remainingTime)
+                    putInt(KEY_TIMER_DURATION, timerInitialValue.value.toInt())
+                    android.util.Log.d("TimerService", "Saving state: Running, remaining: ${state.remainingTime}ms")
+                }
+                is TimerState.Finished -> {
+                    putBoolean(KEY_TIMER_RUNNING, false)
+                    putBoolean(KEY_TIMER_FINISHED, true)
+                    android.util.Log.d("TimerService", "Saving state: Finished")
+                }
+            }
+            commit()
         }
     }
 
-    private fun createRunningNotification(): NotificationCompat.Builder {
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("⏱️ Timer Running")
-            .setContentText("Tap to view timer")
-            .setSmallIcon(android.R.drawable.ic_menu_recent_history)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setAutoCancel(false)
-            .setOngoing(true)
+    private fun restoreTimerState() {
+        val isRunning = sharedPreferences.getBoolean(KEY_TIMER_RUNNING, false)
+        val isFinished = sharedPreferences.getBoolean(KEY_TIMER_FINISHED, false)
+
+        if (isRunning) {
+            val endTime = sharedPreferences.getLong(KEY_TIMER_END_TIME, 0)
+            val remainingTime = endTime - System.currentTimeMillis()
+            if (remainingTime > 0) {
+                val initialTime = sharedPreferences.getInt(KEY_TIMER_DURATION, 0).toLong()
+                _timerInitialValue.value = initialTime
+                startTimer(remainingTime)
+            } else {
+                _timerState.value =
+                    TimerState.Finished(sharedPreferences.getInt(KEY_TIMER_DURATION, 0).toLong())
+                saveTimerState()
+            }
+        } else if (isFinished) {
+            _timerState.value =
+                TimerState.Finished(sharedPreferences.getInt(KEY_TIMER_DURATION, 0).toLong())
+        } else {
+            _timerState.value = TimerState.Idle
+        }
     }
 
-    private fun createFinishedNotification(): NotificationCompat.Builder {
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("⏰ Timer Finished!")
-            .setContentText("Tap to stop alarm")
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setAutoCancel(false)
-            .setOngoing(true)
+    private fun requestTileUpdate() {
+        lifecycleScope.launch {
+            TileService.getUpdater(applicationContext)
+                .requestUpdate(TimerTileService::class.java)
+        }
     }
 
-    private fun createPendingIntent(): PendingIntent {
-        val intent = Intent(this, CountdownActivity::class.java)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        return PendingIntent.getActivity(
-            this, 0, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+    inner class TimerBinder : Binder() {
+        fun startTimer(duration: Long) = this@TimerService.startTimer(duration)
+        fun stopTimer() = this@TimerService.stopTimer()
     }
 
-    private fun setTimerRunning(running: Boolean) {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putBoolean(KEY_TIMER_RUNNING, running).apply()
-    }
+    companion object {
+        const val EXTRA_TIMER_DURATION = "com.frank.weartimer.EXTRA_TIMER_DURATION"
+        const val ACTION_STOP_TIMER = "com.frank.weartimer.ACTION_STOP_TIMER"
+        private const val PREFS_NAME = "timer_state"
+        private const val KEY_TIMER_RUNNING = "timer_running"
+        private const val KEY_TIMER_FINISHED = "timer_finished"
+        private const val KEY_TIMER_DURATION = "timer_duration"
+        private const val KEY_TIMER_END_TIME = "timer_end_time"
 
-    private fun setTimerFinished(finished: Boolean) {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putBoolean(KEY_TIMER_FINISHED, finished).apply()
-        println("DEBUG: setTimerFinished called with: $finished")
-    }
-
-    private fun saveTimerState(duration: Int) {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val currentTime = System.currentTimeMillis()
-        prefs.edit()
-            .putLong("timer_start_time", currentTime)
-            .putInt("timer_duration", duration)
-            .putLong("timer_end_time", currentTime + (duration * 1000L))
-            .apply()
-    }
-
-    private fun updateRemainingTime(remainingSeconds: Int) {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val currentTime = System.currentTimeMillis()
-        val endTime = currentTime + (remainingSeconds * 1000L)
-        prefs.edit().putLong("timer_end_time", endTime).apply()
-    }
-
-
-
-    private fun clearTimerState() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit()
-            .remove("timer_start_time")
-            .remove("timer_duration")
-            .remove("timer_end_time")
-            .apply()
-    }
-
-    override fun onBind(intent: Intent?): IBinder? = null
-
-    override fun onDestroy() {
-        super.onDestroy()
-        stopTimer()
+        private const val NOTIFICATION_ID = 123
     }
 }

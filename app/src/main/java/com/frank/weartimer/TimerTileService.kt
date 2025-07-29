@@ -23,24 +23,32 @@ private const val MAIN_ACTIVITY_CLASS_NAME = "com.frank.weartimer.MainActivity"
 class TimerTileService : TileService() {
     companion object {
         fun requestTileUpdate(context: Context) {
+            android.util.Log.d("TimerTileService", "requestTileUpdate called")
             getUpdater(context).requestUpdate(TimerTileService::class.java)
         }
     }
 
     override fun onTileRequest(requestParams: RequestBuilders.TileRequest): ListenableFuture<TileBuilders.Tile> {
+        android.util.Log.d("TimerTileService", "onTileRequest called")
+        
         val isTimerRunning = CountdownActivity.isTimerRunning(applicationContext)
+        val remainingTime = CountdownActivity.getRemainingTime(applicationContext)
+        
+        // Debug logging
+        android.util.Log.d("TimerTileService", "isTimerRunning: $isTimerRunning, remainingTime: $remainingTime")
 
         val layout = if (isTimerRunning) {
-            val remainingTime = CountdownActivity.getRemainingTime(applicationContext)
+            android.util.Log.d("TimerTileService", "Creating timer display layout")
             val minutes = remainingTime / 60
             val seconds = remainingTime % 60
             val timeText = String.format(Locale.US, "%02d:%02d", minutes, seconds)
+            android.util.Log.d("TimerTileService", "Time text: $timeText")
 
             val openCountdownActivity = ActionBuilders.LaunchAction.Builder().setAndroidActivity(
                 ActionBuilders.AndroidActivity.Builder()
                     .setPackageName(packageName)
                     .setClassName(COUNTDOWN_ACTIVITY_CLASS_NAME)
-                    .addKeyToExtraMapping("timer_length", ActionBuilders.intExtra(60))
+                    .addKeyToExtraMapping("timer_length", ActionBuilders.intExtra(-1))
                     .build()
             ).build()
 
@@ -70,6 +78,7 @@ class TimerTileService : TileService() {
                 )
                 .build()
         } else {
+            android.util.Log.d("TimerTileService", "Creating quick timer layout")
             LayoutElementBuilders.Layout.Builder()
                 .setRoot(
                     LayoutElementBuilders.Column.Builder()
@@ -122,8 +131,10 @@ class TimerTileService : TileService() {
 
         if (isTimerRunning) {
             tileBuilder.setFreshnessIntervalMillis(TimeUnit.SECONDS.toMillis(1))
+            android.util.Log.d("TimerTileService", "Setting freshness interval to 1 second")
         }
 
+        android.util.Log.d("TimerTileService", "Returning tile")
         return Futures.immediateFuture(tileBuilder.build())
     }
 

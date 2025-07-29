@@ -13,6 +13,8 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,6 +25,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material.Button
+import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material.Text
 
 class CountdownActivity : ComponentActivity() {
@@ -296,10 +299,10 @@ fun CountdownScreen(
                             .fillMaxWidth(0.7f)
                             .height(64.dp)
                     ) {
-                        Text(
-                            "STOP",
-                            fontSize = 24.sp,
-                            color = Color.White
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .background(Color.Black)
                         )
                     }
 
@@ -353,10 +356,19 @@ fun CountdownScreen(
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Button(onClick = onStopPressed) {
-                            Text("Stop")
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .background(Color.Black)
+                            )
                         }
                         Button(onClick = onRestartPressed) {
-                            Text("Restart")
+                            Icon(
+                                imageVector = Icons.Default.RestartAlt,
+                                contentDescription = "Restart",
+                                tint = Color.Black,
+                                modifier = Modifier.size(32.dp)
+                            )
                         }
                     }
                 }

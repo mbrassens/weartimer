@@ -73,6 +73,7 @@ class TimerService : Service() {
                 val remainingSeconds = (millisUntilFinished / 1000).toInt()
                 updateRemainingTime(remainingSeconds)
                 TimerTileService.requestTileUpdate(applicationContext)
+                HelloWorldTileService.requestTileUpdate(applicationContext)
             }
 
             override fun onFinish() {
@@ -90,6 +91,7 @@ class TimerService : Service() {
                 // Update notification
                 updateOngoingActivityForFinish()
                 TimerTileService.requestTileUpdate(applicationContext)
+                HelloWorldTileService.requestTileUpdate(applicationContext)
             }
         }.start()
 
@@ -121,6 +123,7 @@ class TimerService : Service() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancel(NOTIFICATION_ID)
         TimerTileService.requestTileUpdate(applicationContext)
+        HelloWorldTileService.requestTileUpdate(applicationContext)
 
         // Stop service
         stopForeground(true)
@@ -262,4 +265,4 @@ class TimerService : Service() {
         super.onDestroy()
         stopTimer()
     }
-} 
+}

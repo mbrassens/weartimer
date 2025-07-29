@@ -43,7 +43,8 @@
             android:exported="true"
             android:label="@string/app_name" />
         <service
-            android:name=".TimerTileService"
+            android:name=".HelloWorldTileService"
+            android:label="Hello World Tile"
             android:exported="true"
             android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
             <intent-filter>

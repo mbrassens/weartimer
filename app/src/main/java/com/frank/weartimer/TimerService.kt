@@ -171,19 +171,16 @@ class TimerService : LifecycleService() {
                 is TimerState.Idle -> {
                     putBoolean(KEY_TIMER_RUNNING, false)
                     putBoolean(KEY_TIMER_FINISHED, false)
-                    android.util.Log.d("TimerService", "Saving state: Idle")
                 }
                 is TimerState.Running -> {
                     putBoolean(KEY_TIMER_RUNNING, true)
                     putBoolean(KEY_TIMER_FINISHED, false)
                     putLong(KEY_TIMER_END_TIME, System.currentTimeMillis() + state.remainingTime)
                     putInt(KEY_TIMER_DURATION, timerInitialValue.value.toInt())
-                    android.util.Log.d("TimerService", "Saving state: Running, remaining: ${state.remainingTime}ms")
                 }
                 is TimerState.Finished -> {
                     putBoolean(KEY_TIMER_RUNNING, false)
                     putBoolean(KEY_TIMER_FINISHED, true)
-                    android.util.Log.d("TimerService", "Saving state: Finished")
                 }
             }
             commit()

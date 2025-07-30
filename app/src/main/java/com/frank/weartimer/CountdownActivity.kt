@@ -46,24 +46,19 @@ class CountdownActivity : ComponentActivity() {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val isTimerRunning = prefs.getBoolean(KEY_TIMER_RUNNING, false)
             val isTimerFinished = prefs.getBoolean(KEY_TIMER_FINISHED, false)
-            val result = isTimerRunning || isTimerFinished
-            android.util.Log.d("CountdownActivity", "isTimerRunning: $result (running: $isTimerRunning, finished: $isTimerFinished)")
-            return result
+            return isTimerRunning || isTimerFinished
         }
 
         fun getRemainingTime(context: Context): Int {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val isTimerFinished = prefs.getBoolean(KEY_TIMER_FINISHED, false)
             if (isTimerFinished) {
-                android.util.Log.d("CountdownActivity", "getRemainingTime: 0 (timer finished)")
                 return 0
             }
             val endTime = prefs.getLong(KEY_TIMER_END_TIME, 0)
             val currentTime = System.currentTimeMillis()
             val remainingMillis = endTime - currentTime
-            val result = if (remainingMillis > 0) (remainingMillis / 1000).toInt() else 0
-            android.util.Log.d("CountdownActivity", "getRemainingTime: $result (endTime: $endTime, currentTime: $currentTime)")
-            return result
+            return if (remainingMillis > 0) (remainingMillis / 1000).toInt() else 0
         }
     }
 

@@ -22,56 +22,86 @@ class OneMinuteTimerComplicationService : ComplicationDataSourceService() {
 
     override fun onComplicationRequest(
         request: ComplicationRequest,
-        listener: ComplicationRequestListener
+        listener: ComplicationDataSourceService.ComplicationRequestListener
     ) {
         listener.onComplicationData(createComplicationData(request.complicationType))
     }
 
     private fun createComplicationData(type: ComplicationType): ComplicationData? {
-        val intent = Intent(this, CountdownActivity::class.java).apply {
-            putExtra("timer_length", 60)
+        // Check if timer is already running
+        val isTimerRunning = CountdownActivity.isTimerRunning(this)
+        
+        val pendingIntent = if (isTimerRunning) {
+            // If timer is running, just launch the app to show current timer
+            PendingIntent.getActivity(
+                this,
+                0,
+                Intent(this, CountdownActivity::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        } else {
+            // If no timer is running, start a 1-minute timer
+            PendingIntent.getActivity(
+                this,
+                0,
+                Intent(this, CountdownActivity::class.java).apply {
+                    putExtra("timer_length", 60) // 1 minute
+                },
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
         }
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
 
         val text = "1m"
-        val longText = "1m Timer"
-        val contentDescription = "1 minute timer"
+        val contentDescription = "1 Minute Timer"
 
         return when (type) {
-            ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(
-                text = PlainComplicationText.Builder(text).build(),
-                contentDescription = PlainComplicationText.Builder(contentDescription).build()
-            )
-                .setTapAction(pendingIntent)
-                .build()
-            ComplicationType.LONG_TEXT -> LongTextComplicationData.Builder(
-                text = PlainComplicationText.Builder(longText).build(),
-                contentDescription = PlainComplicationText.Builder(contentDescription).build()
-            )
-                .setTapAction(pendingIntent)
-                .build()
-            ComplicationType.RANGED_VALUE -> RangedValueComplicationData.Builder(
-                value = 1f,
-                min = 0f,
-                max = 1f,
-                contentDescription = PlainComplicationText.Builder(contentDescription).build()
-            )
-                .setText(PlainComplicationText.Builder(text).build())
-                .setTapAction(pendingIntent)
-                .build()
-            ComplicationType.MONOCHROMATIC_IMAGE -> MonochromaticImageComplicationData.Builder(
-                monochromaticImage = MonochromaticImage.Builder(
-                    Icon.createWithResource(this, R.drawable.ic_timer_sandglass_crown)
-                ).build(),
-                contentDescription = PlainComplicationText.Builder(contentDescription).build()
-            )
-                .setTapAction(pendingIntent)
-                .build()
+            ComplicationType.SHORT_TEXT -> {
+                ShortTextComplicationData.Builder(
+                    text = PlainComplicationText.Builder(text).build(),
+                    contentDescription = PlainComplicationText.Builder(contentDescription).build()
+                )
+                    .setTapAction(pendingIntent)
+                    .build()
+            }
+            ComplicationType.LONG_TEXT -> {
+                LongTextComplicationData.Builder(
+                    text = PlainComplicationText.Builder("1 Minute Timer").build(),
+                    contentDescription = PlainComplicationText.Builder(contentDescription).build()
+                )
+                    .setTapAction(pendingIntent)
+                    .build()
+            }
+            ComplicationType.RANGED_VALUE -> {
+                RangedValueComplicationData.Builder(
+                    value = 1f,
+                    min = 0f,
+                    max = 1f,
+                    contentDescription = PlainComplicationText.Builder(contentDescription).build()
+                )
+                    .setText(PlainComplicationText.Builder(text).build())
+                    .setTapAction(pendingIntent)
+                    .build()
+            }
+            ComplicationType.MONOCHROMATIC_IMAGE -> {
+                try {
+                    MonochromaticImageComplicationData.Builder(
+                        monochromaticImage = MonochromaticImage.Builder(
+                            Icon.createWithResource(this, R.drawable.ic_timer_simple)
+                        ).build(),
+                        contentDescription = PlainComplicationText.Builder(contentDescription).build()
+                    )
+                        .setTapAction(pendingIntent)
+                        .build()
+                } catch (e: Exception) {
+                    // Fallback to text if icon fails
+                    ShortTextComplicationData.Builder(
+                        text = PlainComplicationText.Builder(text).build(),
+                        contentDescription = PlainComplicationText.Builder(contentDescription).build()
+                    )
+                        .setTapAction(pendingIntent)
+                        .build()
+                }
+            }
             else -> null
         }
     }

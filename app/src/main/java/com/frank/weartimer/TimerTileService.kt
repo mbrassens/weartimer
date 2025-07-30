@@ -23,26 +23,18 @@ private const val MAIN_ACTIVITY_CLASS_NAME = "com.frank.weartimer.MainActivity"
 class TimerTileService : TileService() {
     companion object {
         fun requestTileUpdate(context: Context) {
-            android.util.Log.d("TimerTileService", "requestTileUpdate called")
             getUpdater(context).requestUpdate(TimerTileService::class.java)
         }
     }
 
     override fun onTileRequest(requestParams: RequestBuilders.TileRequest): ListenableFuture<TileBuilders.Tile> {
-        android.util.Log.d("TimerTileService", "onTileRequest called")
-        
         val isTimerRunning = CountdownActivity.isTimerRunning(applicationContext)
         val remainingTime = CountdownActivity.getRemainingTime(applicationContext)
-        
-        // Debug logging
-        android.util.Log.d("TimerTileService", "isTimerRunning: $isTimerRunning, remainingTime: $remainingTime")
 
         val layout = if (isTimerRunning) {
-            android.util.Log.d("TimerTileService", "Creating timer display layout")
             val minutes = remainingTime / 60
             val seconds = remainingTime % 60
             val timeText = String.format(Locale.US, "%02d:%02d", minutes, seconds)
-            android.util.Log.d("TimerTileService", "Time text: $timeText")
 
             val openCountdownActivity = ActionBuilders.LaunchAction.Builder().setAndroidActivity(
                 ActionBuilders.AndroidActivity.Builder()
@@ -78,7 +70,6 @@ class TimerTileService : TileService() {
                 )
                 .build()
         } else {
-            android.util.Log.d("TimerTileService", "Creating quick timer layout")
             LayoutElementBuilders.Layout.Builder()
                 .setRoot(
                     LayoutElementBuilders.Column.Builder()
@@ -130,11 +121,10 @@ class TimerTileService : TileService() {
             )
 
         if (isTimerRunning) {
-            tileBuilder.setFreshnessIntervalMillis(TimeUnit.SECONDS.toMillis(1))
-            android.util.Log.d("TimerTileService", "Setting freshness interval to 1 second")
+            // Set a very short freshness interval for real-time updates
+            tileBuilder.setFreshnessIntervalMillis(500) // Update every 500ms
         }
 
-        android.util.Log.d("TimerTileService", "Returning tile")
         return Futures.immediateFuture(tileBuilder.build())
     }
 

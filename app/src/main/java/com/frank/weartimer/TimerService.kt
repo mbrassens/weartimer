@@ -38,6 +38,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
+import android.os.SystemClock
 
 sealed class TimerState {
     object Idle : TimerState()
@@ -51,6 +52,7 @@ class TimerService : LifecycleService() {
     private lateinit var sharedPreferences: SharedPreferences
 
     private var countDownTimer: CountDownTimer? = null
+    private var ongoingActivity: OngoingActivity? = null // Make it a class member
 
     private val _timerState = MutableStateFlow<TimerState>(TimerState.Idle)
     val timerState = _timerState.asStateFlow()
@@ -90,26 +92,44 @@ class TimerService : LifecycleService() {
         _timerState.value = TimerState.Running(duration)
 
         val notificationBuilder = buildNotification(duration)
+            .setOngoing(true) // This is required for ongoing activities
 
-        val ongoingActivity =
-            OngoingActivity.Builder(
-                applicationContext,
-                NOTIFICATION_ID,
-                notificationBuilder
-            )
-                .setStaticIcon(R.drawable.ic_timer_sandglass_crown)
-                .setTouchIntent(
-                    PendingIntent.getActivity(
-                        this,
-                        0,
-                        Intent(this, MainActivity::class.java),
-                        PendingIntent.FLAG_IMMUTABLE
-                    )
+        // Create the status for the ongoing activity
+        val status = androidx.wear.ongoing.Status.Builder()
+            .addTemplate("Timer Running")
+            .build()
+
+        Log.d("TimerService", "Creating ongoing activity with status: $status")
+
+        ongoingActivity = OngoingActivity.Builder(
+            applicationContext,
+            NOTIFICATION_ID,
+            notificationBuilder
+        )
+            .setAnimatedIcon(R.drawable.ic_timer_google_style) // Use simpler icon for active mode
+            .setStaticIcon(R.drawable.ic_timer_google_style) // Use simpler icon for ambient mode
+            .setTouchIntent(
+                PendingIntent.getActivity(
+                    this,
+                    0,
+                    Intent(this, CountdownActivity::class.java),
+                    PendingIntent.FLAG_IMMUTABLE
                 )
-                .build()
-        ongoingActivity.apply(applicationContext)
+            )
+            .setStatus(status) // Set the status text
+            .build()
+        
+        try {
+            Log.d("TimerService", "About to apply ongoing activity...")
+            ongoingActivity?.apply(applicationContext)
+            Log.d("TimerService", "Ongoing activity applied successfully!")
+        } catch (e: Exception) {
+            Log.e("TimerService", "Failed to apply ongoing activity", e)
+        }
 
+        // Start foreground service AFTER applying ongoing activity
         startForeground(NOTIFICATION_ID, notificationBuilder.build())
+        Log.d("TimerService", "Started foreground service with notification ID: $NOTIFICATION_ID")
 
         countDownTimer = object : CountDownTimer(duration * 1000, 1000) {
             override fun onTick(millisUntilFinished: Long) {
@@ -117,6 +137,17 @@ class TimerService : LifecycleService() {
                 updateNotification(millisUntilFinished)
                 saveTimerState()
                 requestTileUpdate()
+                
+                // Update the ongoing activity status
+                val updatedStatus = androidx.wear.ongoing.Status.Builder()
+                    .addTemplate("Timer Running")
+                    .build()
+                try {
+                    ongoingActivity?.update(applicationContext, updatedStatus)
+                    Log.d("TimerService", "Updated ongoing activity status: $updatedStatus")
+                } catch (e: Exception) {
+                    Log.e("TimerService", "Failed to update ongoing activity", e)
+                }
             }
 
             override fun onFinish() {
@@ -124,6 +155,7 @@ class TimerService : LifecycleService() {
                 saveTimerState()
                 updateNotification(0)
                 requestTileUpdate()
+                Log.d("TimerService", "Timer finished, ongoing activity should stop")
             }
         }.start()
         saveTimerState()
@@ -133,9 +165,11 @@ class TimerService : LifecycleService() {
     private fun stopTimer() {
         countDownTimer?.cancel()
         _timerState.value = TimerState.Idle
+        ongoingActivity = null // Clear the ongoing activity
         stopForeground(true)
         saveTimerState()
         requestTileUpdate()
+        Log.d("TimerService", "Timer stopped, ongoing activity cleared")
     }
 
     private fun updateNotification(remainingTime: Long) {
@@ -149,20 +183,27 @@ class TimerService : LifecycleService() {
             val channel = NotificationChannel(
                 channelId,
                 "Timer Notifications",
-                NotificationManager.IMPORTANCE_DEFAULT
+                NotificationManager.IMPORTANCE_HIGH // Changed to HIGH importance
             )
             notificationManager.createNotificationChannel(channel)
+            Log.d("TimerService", "Created notification channel: $channelId with HIGH importance")
         }
 
-        val intent = Intent(this, MainActivity::class.java)
+        val intent = Intent(this, CountdownActivity::class.java)
         val pendingIntent =
             PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
 
-        return NotificationCompat.Builder(this, channelId)
+        val builder = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Timer")
             .setContentText("Remaining time: ${formatDisplayTime(remainingTime)}")
-            .setSmallIcon(R.drawable.ic_timer_sandglass_crown)
+            .setSmallIcon(R.drawable.ic_timer_google_style)
             .setContentIntent(pendingIntent)
+            .setCategory(NotificationCompat.CATEGORY_STOPWATCH) // Try STOPWATCH category instead
+            .setPriority(NotificationCompat.PRIORITY_HIGH) // Add high priority
+            .setOngoing(true) // Ensure it's marked as ongoing
+        
+        Log.d("TimerService", "Built notification with channel: $channelId, ongoing: true")
+        return builder
     }
 
     private fun saveTimerState() {
